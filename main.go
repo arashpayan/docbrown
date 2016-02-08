@@ -2,12 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"log"
 	"os"
 	"regexp"
+	"strings"
 	"text/template"
+	"unicode"
 )
 
 type sampleType int
@@ -49,6 +52,20 @@ type RESTDoc struct {
 	PackageName string             `json:"package_name"`
 	PathArgs    []EndpointArgument `json:"path_arguments,omitempty"`
 	QueryArgs   []EndpointArgument `json:"query_argument,omitempty"`
+	Purpose     string             `json:"purpose,omitempty"`
+}
+
+// LowercaseMethod returns the HTTP method as a lowercase string
+func (rd RESTDoc) LowercaseMethod() string {
+	return strings.ToLower(rd.Method)
+}
+
+// HTMLID returns an id capable of being used in an HTML document
+func (rd RESTDoc) HTMLID() string {
+	epParts := strings.FieldsFunc(rd.Endpoint, func(c rune) bool {
+		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
+	})
+	return fmt.Sprintf("#%s_%s", strings.Join(epParts, "_"), strings.ToLower(rd.Method))
 }
 
 func (rd RESTDoc) String() string {
@@ -68,6 +85,11 @@ type RPCDoc struct {
 	PackageName string      `json:"package_name"`
 }
 
+// HTMLID returns an id capable of being used in an HTML document
+func (rd RPCDoc) HTMLID() string {
+	return fmt.Sprintf("#command_%s", strings.ToLower(rd.Command))
+}
+
 func (rd RPCDoc) String() string {
 	buf, err := json.MarshalIndent(rd, "", "  ")
 	if err != nil {
@@ -85,6 +107,11 @@ type BroadcastDoc struct {
 	PackageName string      `json:"package_name"`
 }
 
+// HTMLID returns an id capable of being used in an HTML document
+func (bd BroadcastDoc) HTMLID() string {
+	return fmt.Sprintf("#broadcast_%s", strings.ToLower(bd.Name))
+}
+
 func (bd BroadcastDoc) String() string {
 	buf, err := json.MarshalIndent(bd, "", "  ")
 	if err != nil {
@@ -96,8 +123,11 @@ func (bd BroadcastDoc) String() string {
 
 // PackageDoc ...
 type PackageDoc struct {
-	Name        string
-	Description *string
+	Name          string
+	Description   string
+	RESTDocs      []*RESTDoc
+	RPCDocs       []*RPCDoc
+	BroadcastDocs []*BroadcastDoc
 }
 
 var endpointRE = regexp.MustCompile(`@endpoint +(\S+)`)
@@ -107,10 +137,9 @@ var sampleRE = regexp.MustCompile(`(@sampleBody|@sampleResponse)[^@]*`)
 var samplePartsRE = regexp.MustCompile("(@sampleBody|@sampleResponse) *\\n((.|\\n)+)?``` *(.*)((.|\\n)+)(?:```)")
 var descriptionRE = regexp.MustCompile(`@description +([^@]+)`)
 var broadcastRE = regexp.MustCompile(`@broadcast +(\w+)`)
-var packageRE = regexp.MustCompile(`@package +(\w+)`)
+var packageRE = regexp.MustCompile(`@package +(\S+)`)
 var pathArgRE = regexp.MustCompile(`@pathArg +(\w*) +(.*)`)
-
-// var purposeRE = regexp.MustCompile()
+var purposeRE = regexp.MustCompile(`@purpose +(.+)`)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -121,10 +150,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var restDocs []*RESTDoc
-	var rpcDocs []*RPCDoc
-	var broadcastDocs []*BroadcastDoc
-	pkgDocLists := map[string][]interface{}{}
+	pkgDocs := make(map[string]*PackageDoc)
 
 	for _, pkg := range pkgs {
 		for _, srcFile := range pkg.Files {
@@ -136,24 +162,30 @@ func main() {
 						continue
 					}
 					if rd := parseRESTDoc(comment); rd != nil {
-						restDocs = append(restDocs, rd)
-						list := pkgDocLists[rd.PackageName]
-						list = append(list, rd)
-						pkgDocLists[rd.PackageName] = list
+						pkgDoc := pkgDocs[rd.PackageName]
+						if pkgDoc == nil {
+							pkgDoc = &PackageDoc{Name: rd.PackageName}
+							pkgDocs[pkgDoc.Name] = pkgDoc
+						}
+						pkgDoc.RESTDocs = append(pkgDoc.RESTDocs, rd)
 						continue
 					}
 					if rpcDoc := parseRPCDoc(comment); rpcDoc != nil {
-						rpcDocs = append(rpcDocs, rpcDoc)
-						list := pkgDocLists[rpcDoc.PackageName]
-						list = append(list, rpcDoc)
-						pkgDocLists[rpcDoc.PackageName] = list
+						pkgDoc := pkgDocs[rpcDoc.PackageName]
+						if pkgDoc == nil {
+							pkgDoc = &PackageDoc{Name: rpcDoc.PackageName}
+							pkgDocs[pkgDoc.Name] = pkgDoc
+						}
+						pkgDoc.RPCDocs = append(pkgDoc.RPCDocs, rpcDoc)
 						continue
 					}
 					if bcastDoc := parseBroadcastDoc(comment); bcastDoc != nil {
-						broadcastDocs = append(broadcastDocs, bcastDoc)
-						list := pkgDocLists[bcastDoc.PackageName]
-						list = append(list, bcastDoc)
-						pkgDocLists[bcastDoc.PackageName] = list
+						pkgDoc := pkgDocs[bcastDoc.PackageName]
+						if pkgDoc == nil {
+							pkgDoc = &PackageDoc{Name: bcastDoc.PackageName}
+							pkgDocs[pkgDoc.Name] = pkgDoc
+						}
+						pkgDoc.BroadcastDocs = append(pkgDoc.BroadcastDocs, bcastDoc)
 						continue
 					}
 				}
@@ -162,16 +194,15 @@ func main() {
 	}
 
 	var allPkgNames []string
-	for pkgName := range pkgDocLists {
+	for pkgName := range pkgDocs {
 		allPkgNames = append(allPkgNames, pkgName)
 	}
-	log.Printf("%v", allPkgNames)
 	tmpl, err := template.ParseFiles("package_template.html")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for pkgName := range pkgDocLists {
+	for pkgName, pkgDoc := range pkgDocs {
 		file, err := os.Create(pkgName + ".html")
 		if err != nil {
 			log.Fatal(err)
@@ -179,6 +210,7 @@ func main() {
 		defer file.Close()
 		tmpl.Execute(file, map[string]interface{}{
 			"PackageNames": allPkgNames,
+			"PackageDocs":  pkgDoc,
 		})
 	}
 }
@@ -196,19 +228,18 @@ func parseRESTDoc(comment string) *RESTDoc {
 	doc := RESTDoc{PackageName: pkgs[1], Endpoint: endpoints[1]}
 
 	// default method is GET
-	method := "GET"
 	methods := methodRE.FindStringSubmatch(comment)
 	if methods == nil {
 		doc.Method = "GET"
 	} else {
-		doc.Method = method
+		doc.Method = methods[1]
 	}
 
 	doc.Samples = parseDocSamples(comment)
 
 	descriptionMatches := descriptionRE.FindStringSubmatch(comment)
 	if len(descriptionMatches) > 1 {
-		doc.Description = descriptionMatches[1]
+		doc.Description = strings.TrimSpace(descriptionMatches[1])
 	}
 
 	// look for path arguments
@@ -223,6 +254,11 @@ func parseRESTDoc(comment string) *RESTDoc {
 		}
 	}
 
+	purposeMatches := purposeRE.FindStringSubmatch(comment)
+	if purposeMatches != nil {
+		doc.Purpose = purposeMatches[1]
+	}
+
 	return &doc
 }
 
@@ -231,12 +267,12 @@ func parseRPCDoc(comment string) *RPCDoc {
 	if len(pkgs) < 2 {
 		return nil
 	}
-	commandMatch := commandRE.FindStringSubmatch(comment)
-	if commandMatch == nil {
+	commandMatches := commandRE.FindStringSubmatch(comment)
+	if commandMatches == nil {
 		return nil
 	}
 
-	doc := RPCDoc{PackageName: pkgs[1]}
+	doc := RPCDoc{PackageName: pkgs[1], Command: strings.TrimSpace(commandMatches[1])}
 
 	doc.Samples = parseDocSamples(comment)
 

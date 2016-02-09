@@ -2,7 +2,7 @@
 <head>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="docs.css">
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="prism.css">
     <script src="prism.js"></script>
 </head>
@@ -20,6 +20,7 @@
         </ul>
     </div>
 
+    <!-- Table of Contents -->
     <div class="secondaryNavWrapper">
         <ul class="nav nav-pills nav-stacked" id="secondaryNav">
             <li class="nav-header">{{.PackageDocs.Name}}</li>
@@ -39,25 +40,56 @@
         </ul>
     </div>
 
-    <section class="resource" id="layouts">
+    <section class="resource" id="{{ .PackageDocs.Name }}">
         <header class="eyebrow">RESOURCE NAME</header>
         <h1>{{ .PackageDocs.Name }}</h1>
         <article>Opening sentence about package.</article>
-
+        <!-- REST endpoint docs -->
         {{ range $index, $restDoc := .PackageDocs.RESTDocs }}
         <section>
             <h4 class="methodHeader">{{ $restDoc.Purpose }}</h4>
             <h5 class="{{ $restDoc.LowercaseMethod }} verb" id="{{ $restDoc.HTMLID }}">{{ $restDoc.Endpoint }}</h5>
             <section class="method_detail {{ $restDoc.LowercaseMethod }}">
-                <header class="does">{{ $restDoc.Description }}</header>
+                <header class="does">{{ $restDoc.HTMLDescription }}</header>
                 {{ range $sampleIndex, $sample := $restDoc.Samples }}
-                {{ if ne $restDoc.Text "" }}<div class="code_description">{{ $restDoc.Text }}</div>{{end}}
+                {{ if ne $sample.Text "" }}<div class="code_description">{{ $sample.HTMLText }}</div>{{end}}
                 <pre class={{if eq $sample.Type 0}}"payload"{{else}}"return"{{end}}><code class="language-javascript">
 {{ $sample.Code }}
                 </code></pre>{{ end }}
             </section>
         </section>
         {{ end }}
+
+        <section class="rpc" id="{{.PackageDocs.Name}}_rpc">
+            {{ range $index, $rpcDoc := .PackageDocs.RPCDocs }}
+            <h4 class="methodHeader rpc">Command: {{ $rpcDoc.Command }}</h4>
+            <h5 class="rpc" id="{{ $rpcDoc.HTMLID }}">{{ $rpcDoc.Command }}</h5>
+            <section class="method_detail rpc">
+                <header>{{ $rpcDoc.HTMLDescription }}</header>
+                {{ range $sampleIndex, $sample := $rpcDoc.Samples }}
+                {{ if ne $sample.Text "" }}<div class="code_description">{{ $sample.HTMLText }}</div>{{end}}
+                <pre class={{if eq $sample.Type 0}}"payload"{{else}}"return"{{end}}><code class="language-javascript">
+{{ $sample.Code }}
+                </code></pre>{{ end }}
+            </section>
+            {{ end }}
+        </section>
+
+        <section class="broadcast" id="{{.PackageDocs.Name}}_broadcast">
+            {{ range $index, $bcDoc := .PackageDocs.BroadcastDocs }}
+            <h4 class="methodHeader">Broadcast: {{ $bcDoc.Name }}</h4>
+            <h5 class="broadcast_event" id="{{ $bcDoc.HTMLID }}">{{ $bcDoc.Name }}</h5>
+            <section class="method_detail">
+                <header>{{ $bcDoc.HTMLDescription }}</header>
+                {{ range $sampleIndex, $sample := $bcDoc.Samples }}
+                {{ if ne $sample.Text "" }}<div class="code_description">{{ $sample.HTMLText }}</div>{{end}}
+                <pre class={{if eq $sample.Type 0}}"payload"{{else}}"return"{{end}}><code class="language-javascript">
+{{ $sample.Code }}
+                </code></pre>{{ end }}
+            </section>
+            {{ end }}
+        </section>
+
     </section>
 
 </body>

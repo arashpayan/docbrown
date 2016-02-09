@@ -13,6 +13,8 @@ import (
 	"strings"
 	"text/template"
 	"unicode"
+
+	"github.com/russross/blackfriday"
 )
 
 type sampleType int
@@ -28,6 +30,11 @@ type DocSample struct {
 	Code     string     `json:"code"`
 	Type     sampleType `json:"type"`
 	Language string     `json:"language"`
+}
+
+// HTMLText returns an HTML representation of the Text
+func (ds DocSample) HTMLText() string {
+	return string(blackfriday.MarkdownCommon([]byte(ds.Text)))
 }
 
 func (ds DocSample) String() string {
@@ -55,6 +62,11 @@ type RESTDoc struct {
 	PathArgs    []EndpointArgument `json:"path_arguments,omitempty"`
 	QueryArgs   []EndpointArgument `json:"query_argument,omitempty"`
 	Purpose     string             `json:"purpose,omitempty"`
+}
+
+// HTMLDescription converts the description from markdown to html
+func (rd RESTDoc) HTMLDescription() string {
+	return string(blackfriday.MarkdownCommon([]byte(rd.Description)))
 }
 
 // LowercaseMethod returns the HTTP method as a lowercase string
@@ -87,6 +99,11 @@ type RPCDoc struct {
 	PackageName string      `json:"package_name"`
 }
 
+// HTMLDescription converts the description from markdown to html
+func (rd RPCDoc) HTMLDescription() string {
+	return string(blackfriday.MarkdownCommon([]byte(rd.Description)))
+}
+
 // HTMLID returns an id capable of being used in an HTML document
 func (rd RPCDoc) HTMLID() string {
 	return fmt.Sprintf("command_%s", strings.ToLower(rd.Command))
@@ -107,6 +124,11 @@ type BroadcastDoc struct {
 	Description string      `json:"description,omitempty"`
 	Samples     []DocSample `json:"samples,omitempty"`
 	PackageName string      `json:"package_name"`
+}
+
+// HTMLDescription converts the description from markdown to html
+func (bd BroadcastDoc) HTMLDescription() string {
+	return string(blackfriday.MarkdownCommon([]byte(bd.Description)))
 }
 
 // HTMLID returns an id capable of being used in an HTML document
@@ -220,10 +242,13 @@ func main() {
 			log.Fatal(err)
 		}
 		defer file.Close()
-		tmpl.Execute(file, map[string]interface{}{
+		err = tmpl.Execute(file, map[string]interface{}{
 			"PackageNames": allPkgNames,
 			"PackageDocs":  pkgDoc,
 		})
+		if err != nil {
+			log.Fatalf("Template error: %v", err)
+		}
 	}
 
 	// copy the stylesheet and js files
@@ -234,6 +259,10 @@ func main() {
 	err = copyFile("prism.js", filepath.Join(outputDir, "prism.js"))
 	if err != nil {
 		log.Fatalf("Error copying prism.js: %v", err)
+	}
+	err = copyFile("style.css", filepath.Join(outputDir, "style.css"))
+	if err != nil {
+		log.Fatalf("Error copying docs.css: %v", err)
 	}
 }
 

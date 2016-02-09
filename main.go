@@ -366,7 +366,7 @@ func parseDocSamples(comment string) []DocSample {
 		}
 		ds.Text = parts[2]
 		ds.Language = parts[4]
-		ds.Code = parts[5]
+		ds.Code = strings.TrimSpace(parts[5])
 		samples = append(samples, ds)
 	}
 

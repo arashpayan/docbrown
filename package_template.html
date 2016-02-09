@@ -51,11 +51,10 @@
             <section class="method_detail {{ $restDoc.LowercaseMethod }}">
                 <header class="does">{{ $restDoc.Description }}</header>
                 {{ range $sampleIndex, $sample := $restDoc.Samples }}
-                {{ if ne $restDoc.Text "" }} <div class="code_description">{{ $restDoc.Text }}</div>{{end}}
+                {{ if ne $restDoc.Text "" }}<div class="code_description">{{ $restDoc.Text }}</div>{{end}}
                 <pre class={{if eq $sample.Type 0}}"payload"{{else}}"return"{{end}}><code class="language-javascript">
 {{ $sample.Code }}
-</code></pre>
-                {{ end }}
+                </code></pre>{{ end }}
             </section>
         </section>
         {{ end }}

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
@@ -65,7 +67,7 @@ func (rd RESTDoc) HTMLID() string {
 	epParts := strings.FieldsFunc(rd.Endpoint, func(c rune) bool {
 		return !unicode.IsLetter(c) && !unicode.IsNumber(c)
 	})
-	return fmt.Sprintf("#%s_%s", strings.Join(epParts, "_"), strings.ToLower(rd.Method))
+	return fmt.Sprintf("%s_%s", strings.Join(epParts, "_"), strings.ToLower(rd.Method))
 }
 
 func (rd RESTDoc) String() string {
@@ -87,7 +89,7 @@ type RPCDoc struct {
 
 // HTMLID returns an id capable of being used in an HTML document
 func (rd RPCDoc) HTMLID() string {
-	return fmt.Sprintf("#command_%s", strings.ToLower(rd.Command))
+	return fmt.Sprintf("command_%s", strings.ToLower(rd.Command))
 }
 
 func (rd RPCDoc) String() string {
@@ -109,7 +111,7 @@ type BroadcastDoc struct {
 
 // HTMLID returns an id capable of being used in an HTML document
 func (bd BroadcastDoc) HTMLID() string {
-	return fmt.Sprintf("#broadcast_%s", strings.ToLower(bd.Name))
+	return fmt.Sprintf("broadcast_%s", strings.ToLower(bd.Name))
 }
 
 func (bd BroadcastDoc) String() string {
@@ -144,6 +146,9 @@ var purposeRE = regexp.MustCompile(`@purpose +(.+)`)
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("You need to specify a path to scan")
+	}
+	if len(os.Args) < 3 {
+		log.Fatal("You need to specify a path for the output directory")
 	}
 	pkgs, err := parser.ParseDir(token.NewFileSet(), os.Args[1], nil, parser.ParseComments)
 	if err != nil {
@@ -202,8 +207,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	outputDir := filepath.Join(os.Args[2], "docs")
+	err = os.MkdirAll(outputDir, 0755)
+	if err != nil {
+		log.Fatalf("Error creating output dir: %v", err)
+	}
+
 	for pkgName, pkgDoc := range pkgDocs {
-		file, err := os.Create(pkgName + ".html")
+		fileName := filepath.Join(outputDir, pkgName+".html")
+		file, err := os.Create(fileName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -213,6 +225,37 @@ func main() {
 			"PackageDocs":  pkgDoc,
 		})
 	}
+
+	// copy the stylesheet and js files
+	err = copyFile("prism.css", filepath.Join(outputDir, "prism.css"))
+	if err != nil {
+		log.Fatalf("Error copying prism.css: %v", err)
+	}
+	err = copyFile("prism.js", filepath.Join(outputDir, "prism.js"))
+	if err != nil {
+		log.Fatalf("Error copying prism.js: %v", err)
+	}
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("error opening src: %v", err)
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("error opening dst: %v", err)
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return fmt.Errorf("error copying data: %v", err)
+	}
+
+	return nil
 }
 
 func parseRESTDoc(comment string) *RESTDoc {

@@ -95,8 +95,8 @@
 			code a { color: #c7254e; }
     </style>
 
-    <link rel="stylesheet" href="styles/prism.css">
-    <script src="scripts/prism.js"></script>
+    <link rel="stylesheet" href="prism.css">
+    <script src="prism.js"></script>
 </head>
 
 <body>
@@ -110,44 +110,47 @@
             <li role="presentation"><a href="{{$pkgName}}.html">{{$pkgName}}</a></li>
             {{ end }}
         </ul>
+    </div>
 
-        <div class="secondaryNavWrapper">
-            <ul class="nav nav-pills nav-stacked" id="secondaryNav">
-                <li class="nav-header">{{.PackageDocs.Name}}</li>
-                <li class="nav-subhead">REST Endpoints</li>
-                {{ range $index, $restDoc := .PackageDocs.RESTDocs }}
-                <li><a href="{{ $restDoc.HTMLID }}">{{ $restDoc.Purpose }}</a></li>
-                {{ end }}
-                <li><a href="#{{.PackageDocs.Name}}_rpc"><label class="label label-default">RPC</label> RPC commands</a></li>
-                {{ range $index, $rpcDoc := .PackageDocs.RPCDocs }}
-                <li><a href="{{ $rpcDoc.HTMLID }}">{{ $rpcDoc.Command }}</a></li>
-                {{ end }}
-
-                <li><a href="#{{.PackageDocs.Name}}_broadcast"><label class="label label-default">RPC</label> Broadcast messages</a></li>
-                {{ range $index, $bcDoc := .PackageDocs.BroadcastDocs }}
-                <li><a href="{{ $bcDoc.HTMLID }}">{{ $bcDoc.Name }}</a></li>
-                {{ end }}
-            </ul>
-        </div>
-
-        <section class="resource" id="layouts">
-            <header class="eyebrow">RESOURCE NAME</header>
-            <h1>{{ .PackageDocs.Name }}</h1>
-            <article>Opening sentence about package.</article>
-
+    <div class="secondaryNavWrapper">
+        <ul class="nav nav-pills nav-stacked" id="secondaryNav">
+            <li class="nav-header">{{.PackageDocs.Name}}</li>
+            <li class="nav-subhead">REST Endpoints</li>
             {{ range $index, $restDoc := .PackageDocs.RESTDocs }}
-            <section>
-                <h4 class="methodHeader">{{ $restDoc.Purpose }}</h4>
-                <h5 class="{{ $restDoc.LowercaseMethod }} verb" id="{{ $restDoc.HTMLID }}">{{ $restDoc.Endpoint }}</h5>
-                <section class="method_detail {{ $restDoc.LowercaseMethod }}">
-                    <header class="does">{{ $restDoc.Description }}</header>
-                    <pre class="payload">
-                        <code class="language-javascript">
-                        </code>
-                    </pre>
-                </section>
-            </section>
+            <li><a href="#{{ $restDoc.HTMLID }}">{{ $restDoc.Purpose }}</a></li>
             {{ end }}
+            <li><a href="#{{.PackageDocs.Name}}_rpc"><label class="label label-default">RPC</label> RPC commands</a></li>
+            {{ range $index, $rpcDoc := .PackageDocs.RPCDocs }}
+            <li><a href="#{{ $rpcDoc.HTMLID }}">{{ $rpcDoc.Command }}</a></li>
+            {{ end }}
+
+            <li><a href="#{{.PackageDocs.Name}}_broadcast"><label class="label label-default">RPC</label> Broadcast messages</a></li>
+            {{ range $index, $bcDoc := .PackageDocs.BroadcastDocs }}
+            <li><a href="#{{ $bcDoc.HTMLID }}">{{ $bcDoc.Name }}</a></li>
+            {{ end }}
+        </ul>
+    </div>
+
+    <section class="resource" id="layouts">
+        <header class="eyebrow">RESOURCE NAME</header>
+        <h1>{{ .PackageDocs.Name }}</h1>
+        <article>Opening sentence about package.</article>
+
+        {{ range $index, $restDoc := .PackageDocs.RESTDocs }}
+        <section>
+            <h4 class="methodHeader">{{ $restDoc.Purpose }}</h4>
+            <h5 class="{{ $restDoc.LowercaseMethod }} verb" id="{{ $restDoc.HTMLID }}">{{ $restDoc.Endpoint }}</h5>
+            <section class="method_detail {{ $restDoc.LowercaseMethod }}">
+                <header class="does">{{ $restDoc.Description }}</header>
+                {{ range $sampleIndex, $sample := $restDoc.Samples }}
+                <pre class={{if eq $sample.Type 0}}"payload"{{else}}"return"{{end}}><code class="language-javascript">
+{{ $sample.Code }}
+</code></pre>
+                {{ end }}
+            </section>
+        </section>
+        {{ end }}
+    </section>
 
 </body>
 

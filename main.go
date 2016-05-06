@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"text/template"
 	"unicode"
@@ -84,60 +85,6 @@ func (rd RESTDoc) HTMLID() string {
 
 func (rd RESTDoc) String() string {
 	buf, err := json.MarshalIndent(rd, "", "  ")
-	if err != nil {
-		return "<nil>"
-	}
-
-	return string(buf)
-}
-
-// RPCDoc ...
-type RPCDoc struct {
-	Command     string      `json:"command"`
-	Description string      `json:"description,omitempty"`
-	Samples     []DocSample `json:"samples,omitempty"`
-	PackageName string      `json:"package_name"`
-}
-
-// HTMLDescription converts the description from markdown to html
-func (rd RPCDoc) HTMLDescription() string {
-	return string(blackfriday.MarkdownCommon([]byte(rd.Description)))
-}
-
-// HTMLID returns an id capable of being used in an HTML document
-func (rd RPCDoc) HTMLID() string {
-	return fmt.Sprintf("command_%s", strings.ToLower(rd.Command))
-}
-
-func (rd RPCDoc) String() string {
-	buf, err := json.MarshalIndent(rd, "", "  ")
-	if err != nil {
-		return "<nil>"
-	}
-
-	return string(buf)
-}
-
-// BroadcastDoc ...
-type BroadcastDoc struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description,omitempty"`
-	Samples     []DocSample `json:"samples,omitempty"`
-	PackageName string      `json:"package_name"`
-}
-
-// HTMLDescription converts the description from markdown to html
-func (bd BroadcastDoc) HTMLDescription() string {
-	return string(blackfriday.MarkdownCommon([]byte(bd.Description)))
-}
-
-// HTMLID returns an id capable of being used in an HTML document
-func (bd BroadcastDoc) HTMLID() string {
-	return fmt.Sprintf("broadcast_%s", strings.ToLower(bd.Name))
-}
-
-func (bd BroadcastDoc) String() string {
-	buf, err := json.MarshalIndent(bd, "", "  ")
 	if err != nil {
 		return "<nil>"
 	}
@@ -220,6 +167,15 @@ func main() {
 		}
 	}
 
+	// sort the commands and broadcasts for each package
+	for _, pkgDoc := range pkgDocs {
+		sortableRPCs := byRPCCommand(pkgDoc.RPCDocs)
+		sort.Sort(sortableRPCs)
+
+		sortableBCs := byBroadcastName(pkgDoc.BroadcastDocs)
+		sort.Sort(sortableBCs)
+	}
+
 	var allPkgNames []string
 	for pkgName := range pkgDocs {
 		allPkgNames = append(allPkgNames, pkgName)
@@ -249,6 +205,25 @@ func main() {
 		if err != nil {
 			log.Fatalf("Template error: %v", err)
 		}
+	}
+
+	// create the index file
+	tmpl, err = template.ParseFiles("index_template.html")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fileName := filepath.Join(outputDir, "index.html")
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	err = tmpl.Execute(file, map[string]interface{}{
+		"PackageNames": allPkgNames,
+	})
+	if err != nil {
+		log.Fatalf("Template error: %v", err)
 	}
 
 	// copy the stylesheet and js files

@@ -180,6 +180,7 @@ func main() {
 	for pkgName := range pkgDocs {
 		allPkgNames = append(allPkgNames, pkgName)
 	}
+	sort.Strings(allPkgNames)
 	tmpl, err := template.ParseFiles("package_template.html")
 	if err != nil {
 		log.Fatal(err)

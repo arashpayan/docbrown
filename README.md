@@ -1,7 +1,11 @@
 # docbrown
 This is a tool for generating documentation for the ISS API from comments directly in the ISS code. For convenience, a binary version of this project is included in this repo.
 
-## Generate documentation
+## Building
+1. Install the Go tools from https://golang.org/dl for your operating system
+2. Switch into this directory and run `go build`. You should end up with a binary called `docbrown` in the same directory.
+
+## Generating documentation
 From within this project directory:
 ```
 ./docbrown /path/to/iss/code /output/directory/for/documetation
